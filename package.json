@@ -1,0 +1,7 @@
+{
+  "name": "coreos-4plus2-form",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Respondent form for the Core 4+2 diagnostic — reads an engagement from Airtable and writes answers to Responses.",
+  "engines": { "node": ">=18" }
+}
