@@ -1,12 +1,12 @@
-   module.exports = async (req, res) => {
-     const t = process.env.AIRTABLE_TOKEN || "";
-     const H = { headers: { Authorization: "Bearer " + t } };
-     const hit = async (u) => { try { const r = await fetch(u, H); return { status: r.status, body: (await r.text()).slice(0, 70) }; } catch (e) { return String(e); } };
-     const base = "https://api.airtable.com/v0/appfMP8uezWpG5Z2d/tblzgiNyJkGusKhvZ/recZtQRx6JDpYD3dS";
-     const list = "https://api.airtable.com/v0/appfMP8uezWpG5Z2d/tblzgiNyJkGusKhvZ";
-     res.status(200).json({
-       bare: await hit(base),
-       withParam: await hit(base + "?returnFieldsByFieldId=true"),
-       listWithParam: await hit(list + "?maxRecords=1&returnFieldsByFieldId=true")
-     });
+module.exports = async (req, res) => {
+  const t = process.env.AIRTABLE_TOKEN || "";
+  const A = { Authorization: "Bearer " + t };
+  const AC = { Authorization: "Bearer " + t, "Content-Type": "application/json" };
+  const g = async (u, h) => { try { const r = await fetch("https://api.airtable.com/v0/appfMP8uezWpG5Z2d/" + u, { headers: h }); return r.status; } catch (e) { return String(e); } };
+  res.status(200).json({
+    engNoHeader: await g("tblzgiNyJkGusKhvZ/recZtQRx6JDpYD3dS?returnFieldsByFieldId=true", A),
+    engWithContentType: await g("tblzgiNyJkGusKhvZ/recZtQRx6JDpYD3dS?returnFieldsByFieldId=true", AC),
+    questionnaire: await g("tblDgbA7bPp2rK7Tz/recuC6FUB3pPt6CoZ?returnFieldsByFieldId=true", AC),
+    respondent: await g("tblqute2FxoAzU1Uz/reccy4O3JCJMUlYxI?returnFieldsByFieldId=true", AC)
+  });
    };
