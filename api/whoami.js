@@ -1,0 +1,1 @@
+  module.exports = (req, res) => { const t = process.env.AIRTABLE_TOKEN || ""; res.status(200).json({ tokenPrefix: t.slice(0, 17) || "(none)", hasDot: t.includes("."), length: t.length, baseId: process.env.AIRTABLE_BASE_ID || "(none - using built-in appfMP8uezWpG5Z2d)" }); };
