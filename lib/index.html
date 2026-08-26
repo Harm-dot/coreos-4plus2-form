@@ -152,14 +152,14 @@ function qs(k){return new URLSearchParams(location.search).get(k)}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 // Vercel free-tier functions sleep when idle; the first hit after that can 5xx or drop.
 // Retry a few times with a short backoff so a cold start never reaches the respondent.
-async function fetchRetry(url,opts,tries=4,onRetry){
+async function fetchRetry(url,opts,tries=7,onRetry){
   let lastErr;
   for(let i=0;i<tries;i++){
     try{
       const res=await fetch(url,opts);
-      if(res.status>=500 && i<tries-1){ if(onRetry)onRetry(); await sleep(1000+i*800); continue; }
+      if(res.status>=500 && i<tries-1){ if(onRetry)onRetry(); await sleep(1200+i*1200); continue; }
       return res;
-    }catch(err){ lastErr=err; if(i<tries-1){ if(onRetry)onRetry(); await sleep(1000+i*800); continue; } throw err; }
+    }catch(err){ lastErr=err; if(i<tries-1){ if(onRetry)onRetry(); await sleep(1200+i*1200); continue; } throw err; }
   }
   throw lastErr;
 }
