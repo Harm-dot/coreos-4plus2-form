@@ -102,6 +102,9 @@ select.inp{appearance:none; cursor:pointer; padding-right:36px; background-repea
 .land h1{font-size:34px; letter-spacing:-.02em; margin:0 0 14px}
 .land .tag{font-family:"Newsreader",Georgia,serif; font-style:italic; font-size:23px; line-height:1.4; color:var(--ink); max-width:560px; margin:0 auto}
 .land .kicker{font-size:15px; color:var(--muted); line-height:1.6; max-width:520px; margin:15px auto 0}
+.land .cta{display:inline-block; margin-top:26px; background:var(--accent); color:#fff; font-weight:600; font-size:15px; text-decoration:none; padding:13px 24px; border-radius:10px}
+:root[data-theme="dark"] .land .cta,:root:not([data-theme="light"]) .land .cta{color:#1B1E24}
+.land .cta:hover{filter:brightness(1.05)}
 .land .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:26px; margin-bottom:22px}
 .land .lead{font-size:15.5px; line-height:1.7; margin:0 0 28px}
 .land h2{font-size:12px; text-transform:uppercase; letter-spacing:.14em; color:var(--muted); margin:0 0 16px; font-family:"IBM Plex Mono",monospace}
@@ -149,14 +152,14 @@ function qs(k){return new URLSearchParams(location.search).get(k)}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 // Vercel free-tier functions sleep when idle; the first hit after that can 5xx or drop.
 // Retry a few times with a short backoff so a cold start never reaches the respondent.
-async function fetchRetry(url,opts,tries=4,onRetry){
+async function fetchRetry(url,opts,tries=7,onRetry){
   let lastErr;
   for(let i=0;i<tries;i++){
     try{
       const res=await fetch(url,opts);
-      if(res.status>=500 && i<tries-1){ if(onRetry)onRetry(); await sleep(1000+i*800); continue; }
+      if(res.status>=500 && i<tries-1){ if(onRetry)onRetry(); await sleep(1200+i*1200); continue; }
       return res;
-    }catch(err){ lastErr=err; if(i<tries-1){ if(onRetry)onRetry(); await sleep(1000+i*800); continue; } throw err; }
+    }catch(err){ lastErr=err; if(i<tries-1){ if(onRetry)onRetry(); await sleep(1200+i*1200); continue; } throw err; }
   }
   throw lastErr;
 }
@@ -188,6 +191,7 @@ function showLanding(){
       <h1>Brutal Facts</h1>
       <p class="tag">“Hope is not a strategy.”</p>
       <p class="kicker">A candid Core 4+2 diagnostic of how a business is really performing — across the six drivers that decide the outcome.</p>
+      <a class="cta" href="?e=rec7WCFeALDQDlNld">See the diagnostic in action →</a>
     </div>
     <div class="card">
       <p class="lead">The Core 4+2 Diagnostic turns candid, first-hand perspectives from a leadership team into a clear, driver-by-driver picture of organisational health. Rather than a generic survey, each engagement asks a focused set of questions chosen for the situation — a turnaround, a post-merger integration, a scale-up — so the findings are specific, honest, and immediately useful.</p>
@@ -203,7 +207,7 @@ function showLanding(){
       <div class="drivers">${chips}</div>
       <p class="fine">Four core practices — Strategy, Execution, Culture and Structure — plus two differentiators, Innovation and Leadership. Together they map how a business creates, runs and renews itself.</p>
     </div>
-    <p class="note">Access is by invitation. If you’ve received a link to a diagnostic, open it to begin.</p>
+    <p class="note">The button above opens a live sample you can click through. Real diagnostics are sent by private invitation.</p>
     <div class="foot">
       <img class="flogo" src="${BRAND_LOGO}" alt="Core 4 Business Coaching">
       <div class="fline">CORE 4+2 DIAGNOSTIC · BY CORE 4 BUSINESS COACHING</div>
