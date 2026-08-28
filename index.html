@@ -121,6 +121,15 @@ select.inp{appearance:none; cursor:pointer; padding-right:36px; background-repea
 .land .foot{text-align:center; margin-top:44px}
 .land .foot .flogo{height:38px; width:auto; display:block; margin:0 auto 12px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:7px 12px}
 .land .foot .fline{font-size:11.5px; color:var(--faint); font-family:"IBM Plex Mono",monospace; letter-spacing:.06em}
+/* stepped respondent flow */
+.introcard{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:26px; margin-top:4px}
+.introcard .ik{font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted)}
+.introcard .ititle{font-size:22px; margin:7px 0 12px; letter-spacing:-.01em}
+.introcard .ip{color:var(--muted); line-height:1.6; margin:0 0 12px; font-size:15px}
+.introcard .ip b{color:var(--ink); font-weight:600}
+.stepnav{display:flex; align-items:center; gap:12px; margin-top:22px; justify-content:flex-end}
+.btn.ghost{background:transparent; border:1px solid var(--line-strong); color:var(--muted); margin-right:auto}
+.btn.ghost:hover{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -146,7 +155,7 @@ try{ document.getElementById('brandlogo').src=BRAND_LOGO; }catch(e){}
 const ROLES=["CEO / President","CFO","COO","CSO","CIO / CTO","Owner / Founder","Division / BU Head","Sales Director","Marketing Director","Product / R&D / Innovation Lead","Operations Manager","HR Director","Manager / Team Lead","General Counsel","Corporate Development"];
 const DRIVER_COLOR={Culture:"#B06E3A",Strategy:"#3E7E86",Structure:"#6B7BB0",Execution:"#B0700A",Innovation:"#7C9A45",Leadership:"#9A5B8C"};
 const LEVELS=[{n:1,lab:"Absent",v:"var(--lvl1)"},{n:2,lab:"Emerging",v:"var(--lvl2)"},{n:3,lab:"Defined",v:"var(--lvl3)"},{n:4,lab:"Managed",v:"var(--lvl4)"},{n:5,lab:"Embedded",v:"var(--lvl5)"}];
-const state={ data:null, answers:{}, ratings:{}, respId:null, name:'', role:'' };
+const state={ data:null, answers:{}, ratings:{}, respId:null, name:'', role:'', filteredGroups:null };
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function qs(k){return new URLSearchParams(location.search).get(k)}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -216,23 +225,46 @@ function showLanding(){
   document.getElementById('actionbar').style.display='none';
 }
 
+function goStep(s){
+  ['intro','id','q'].forEach(x=>{ const el=document.getElementById('step-'+x); if(el) el.style.display=(x===s)?'':'none'; });
+  document.getElementById('actionbar').style.display=(s==='q')?'':'none';
+  try{ window.scrollTo(0,0); }catch(e){}
+}
+
 function render(){
   const d=state.data;
   const rosterOpts=d.roster.map(r=>`<option value="${esc(r.id)}" data-role="${esc(r.role)}" data-name="${esc(r.name)}">${esc(r.name)}</option>`).join('');
   const roleOpts='<option value="">Select role…</option>'+ROLES.map(r=>`<option>${esc(r)}</option>`).join('');
-  let html=`
-    <div class="rbanner"><div class="k">Diagnostic${d.engagement.client?' · '+esc(d.engagement.client):''}</div>
-      <div class="v">${esc(d.engagement.name)}</div>
-      <div class="d">Please confirm which name is yours, then answer as candidly as you can — blunt is more useful than polished. ${d.totalQuestions} questions across ${d.groups.length} drivers.</div></div>
-    <div class="idcard">
-      <div class="fld full"><label for="who">Confirm your name</label>
-        <select class="inp" id="who"><option value="">Select your name…</option>${rosterOpts}<option value="__other">I’m not listed…</option></select></div>
-      <div class="fld"><label for="role">Role</label><select class="inp" id="role">${roleOpts}</select></div>
-      <div class="fld" id="otherWrap" style="display:none"><label for="otherName">Your name</label><input class="inp" id="otherName" placeholder="Type your full name"></div>
+  document.getElementById('main').innerHTML=`
+    <div id="step-intro" class="stepwrap">
+      <div class="introcard">
+        <div class="ik">Core 4+2 Diagnostic${d.engagement.client?' · '+esc(d.engagement.client):''}</div>
+        <h2 class="ititle">${esc(d.engagement.name)}</h2>
+        <p class="ip">You've been asked to take part in a short, candid diagnostic — about <b>${d.totalQuestions} questions</b> across <b>${d.groups.length} drivers</b>, roughly ten minutes. Blunt is more useful than polished; your honest read is exactly the point.</p>
+        <p class="ip">No login, nothing to install.</p>
+        <div class="stepnav"><button class="btn primary" id="beginBtn">Begin →</button></div>
+      </div>
     </div>
-    <div id="body"></div>`;
-  document.getElementById('main').innerHTML=html;
-  document.getElementById('actionbar').style.display='';
+    <div id="step-id" class="stepwrap" style="display:none">
+      <div class="introcard">
+        <div class="ik">Step 1 of 2 · Who are you?</div>
+        <h2 class="ititle">Confirm your name</h2>
+        <p class="ip">Pick your name from the list so your answers are attributed correctly.</p>
+        <div class="idcard">
+          <div class="fld full"><label for="who">Your name</label>
+            <select class="inp" id="who"><option value="">Select your name…</option>${rosterOpts}<option value="__other">I’m not listed…</option></select></div>
+          <div class="fld"><label for="role">Role</label><select class="inp" id="role">${roleOpts}</select></div>
+          <div class="fld" id="otherWrap" style="display:none"><label for="otherName">Your name</label><input class="inp" id="otherName" placeholder="Type your full name"></div>
+        </div>
+        <div class="stepnav"><button class="btn ghost" id="backIntro">← Back</button><button class="btn primary" id="toQ" disabled>Continue →</button></div>
+      </div>
+    </div>
+    <div id="step-q" class="stepwrap" style="display:none">
+      <div class="rbanner"><div class="k">Step 2 of 2 · ${esc(d.engagement.name)}</div>
+        <div class="v">Your answers</div>
+        <div class="d" id="qcount">Answer as candidly as you can — blunt is more useful than polished.</div></div>
+      <div id="body"></div>
+    </div>`;
 
   const who=document.getElementById('who');
   who.addEventListener('change',()=>{
@@ -245,40 +277,81 @@ function render(){
     refresh();
   });
   document.getElementById('role').addEventListener('change',e=>{ state.role=e.target.value; refresh(); });
+  document.getElementById('beginBtn').addEventListener('click',()=>goStep('id'));
+  document.getElementById('backIntro').addEventListener('click',()=>goStep('intro'));
+  document.getElementById('toQ').addEventListener('click',()=>{
+    state.role = currentRole();
+    state.filteredGroups = questionsForRole(state.role);
+    buildQuestions(state.filteredGroups);
+    goStep('q'); refresh();
+  });
 
-  const body=document.getElementById('body');
-  d.groups.forEach((g,i)=>{
+  document.getElementById('submit').addEventListener('click',submit);
+  goStep('intro');
+  refresh();
+}
+
+// Which role are we filtering by? A picked roster name carries their registered role;
+// "I'm not listed" uses whatever role they select.
+function currentRole(){
+  const who=document.getElementById('who');
+  if(who && who.value==='__other'){ const r=document.getElementById('role'); return r ? r.value : ''; }
+  return state.role||'';
+}
+// Show a question only if it's tagged for this person's function, tagged "Generic / All",
+// or has no function tag at all. If filtering would leave nothing, fall back to everything.
+function questionsForRole(role){
+  const groups = state.data.groups.map(g=>({
+    driver:g.driver,
+    questions: g.questions.filter(q=>{
+      const f=q.functions||[];
+      return f.length===0 || f.indexOf(role)>=0 || f.indexOf('Generic / All')>=0;
+    })
+  })).filter(g=>g.questions.length);
+  const total = groups.reduce((n,g)=>n+g.questions.length,0);
+  return total ? groups : state.data.groups;
+}
+function buildQuestions(groups){
+  const body=document.getElementById('body'); if(!body) return; body.innerHTML='';
+  groups.forEach((g,i)=>{
     const panel=document.createElement('div'); panel.className='iv-panel';
     panel.innerHTML=`<div class="iv-phead"><span class="dot" style="background:${DRIVER_COLOR[g.driver]||'var(--accent)'}"></span>
-      <span class="ord">0${i+1}</span><h3>${esc(g.driver)}</h3><span class="c">${g.questions.length} question${g.questions.length>1?'s':''}</span></div>`;
+      <span class="ord">${String(i+1).padStart(2,'0')}</span><h3>${esc(g.driver)}</h3><span class="c">${g.questions.length} question${g.questions.length>1?'s':''}</span></div>`;
     g.questions.forEach(q=>{
       const row=document.createElement('div'); row.className='iv-qrow';
       row.innerHTML=`${q.subtheme?`<span class="sub">${esc(q.subtheme)}</span>`:''}<div class="qtext serif">${esc(q.text)}</div>`;
       if(q.type==='Rating'){
         const scale=document.createElement('div'); scale.className='scale';
         LEVELS.forEach(L=>{ const lab=document.createElement('label'); lab.className='lvl'; lab.style.setProperty('--sw',L.v);
-          lab.innerHTML=`<input type="radio" name="r-${q.id}" value="${L.n}"><span class="face"><span class="num">${L.n}</span><span class="lab">${L.lab}</span></span>`;
+          lab.innerHTML=`<input type="radio" name="r-${q.id}" value="${L.n}"${state.ratings[q.id]===L.n?' checked':''}><span class="face"><span class="num">${L.n}</span><span class="lab">${L.lab}</span></span>`;
           lab.querySelector('input').addEventListener('change',()=>{ state.ratings[q.id]=L.n; refresh(); }); scale.appendChild(lab); });
         row.appendChild(scale);
       } else {
         const ta=document.createElement('textarea'); ta.className='inp'; ta.placeholder='Your answer…';
+        if(state.answers[q.id]) ta.value=state.answers[q.id];
         ta.addEventListener('input',()=>{ state.answers[q.id]=ta.value; refresh(); }); row.appendChild(ta);
       }
       panel.appendChild(row);
     });
     body.appendChild(panel);
   });
-  document.getElementById('submit').addEventListener('click',submit);
-  refresh();
+  const tot=groups.reduce((n,g)=>n+g.questions.length,0);
+  const qc=document.getElementById('qcount');
+  if(qc) qc.textContent=`${tot} question${tot===1?'':'s'} across ${groups.length} driver${groups.length===1?'':'s'} — blunt is more useful than polished.`;
 }
 
 function answeredCount(){
-  let n=0; state.data.groups.forEach(g=>g.questions.forEach(q=>{
+  const groups = state.filteredGroups||state.data.groups;
+  let n=0; groups.forEach(g=>g.questions.forEach(q=>{
     if(q.type==='Rating'){ if(state.ratings[q.id]) n++; } else if((state.answers[q.id]||'').trim()) n++; })); return n;
 }
 function refresh(){
-  const total=state.data.totalQuestions, done=answeredCount();
-  const nameOk = state.respId || (document.getElementById('who') && document.getElementById('who').value==='__other' && (document.getElementById('otherName').value||'').trim());
+  const groups = state.filteredGroups||state.data.groups;
+  const total = groups.reduce((n,g)=>n+g.questions.length,0);
+  const done=answeredCount();
+  const who=document.getElementById('who');
+  const nameOk = state.respId || (who && who.value==='__other' && (document.getElementById('otherName').value||'').trim());
+  const cont=document.getElementById('toQ'); if(cont) cont.disabled=!nameOk;
   document.getElementById('tally').textContent=`${done}/${total} answered`;
   document.getElementById('submit').disabled = !(nameOk && done>0);
 }
@@ -289,7 +362,7 @@ async function submit(){
   const isOther = who.value==='__other';
   const name = isOther ? (document.getElementById('otherName').value||'').trim() : state.name;
   const items=[];
-  state.data.groups.forEach(g=>g.questions.forEach(q=>{
+  (state.filteredGroups||state.data.groups).forEach(g=>g.questions.forEach(q=>{
     items.push({ questionId:q.id, type:q.type, answer:state.answers[q.id]||'', rating:state.ratings[q.id]||null });
   }));
   const payload={ engagementId:state.data.engagement.id, respondentId: isOther?null:state.respId, name, role:document.getElementById('role').value, items };
