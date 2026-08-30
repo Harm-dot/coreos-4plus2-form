@@ -1,89 +1,281 @@
-// POST /api/admin — the question-picker backend (no password).
-// Self-contained: reads the question bank directly, so it needs NO change to any
-// existing file — just this new file + admin.html.
-// Actions (JSON body):
-//   { action:'questions' }
-//       → { ok, questions:[{id,text,subtheme,driver,type,order,functions[],scenarios[]}] }
-//   { action:'create', engagement:{name,client,type},
-//     questionIds:['rec…'], people:[{name,role}] }
-//       → { ok, engagementId, link }
-const { T, F, listAll, selName, linkId, createRecords } = require('../lib/airtable');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Core 4+2 · Question Picker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Newsreader:opsz,wght@16..72,400;16..72,500&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#ECEBE6; --panel:#FBFAF8; --panel-2:#F4F2EC;
+  --ink:#181A1E; --muted:#6E717B; --faint:#9A9CA3;
+  --line:#DEDBD3; --line-strong:#CFCBC1;
+  --accent:#B0700A; --accent-ink:#7C4E05; --accent-soft:#F3E7CE;
+  --ok:#3C7A4E; --crit:#B23B2E;
+  --shadow:0 1px 2px rgba(20,22,26,.05), 0 8px 24px rgba(20,22,26,.06);
+  --radius:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#131519; --panel:#1B1E24; --panel-2:#20242B; --ink:#ECEBE6; --muted:#969AA4; --faint:#6C7079;
+  --line:#2A2E36; --line-strong:#3A3F49; --accent:#E7A43E; --accent-ink:#F0BE72; --accent-soft:#33291842;
+  --ok:#6FBF88; --crit:#E8776A; --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{
+  --bg:#131519; --panel:#1B1E24; --panel-2:#20242B; --ink:#ECEBE6; --muted:#969AA4; --faint:#6C7079;
+  --line:#2A2E36; --line-strong:#3A3F49; --accent:#E7A43E; --accent-ink:#F0BE72; --accent-soft:#33291842;
+  --ok:#6FBF88; --crit:#E8776A; --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--bg); color:var(--ink); font-family:"Archivo","Helvetica Neue",Arial,sans-serif; font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+.serif{font-family:"Newsreader",Georgia,serif}
+.bar{position:sticky; top:0; z-index:40; background:color-mix(in srgb,var(--bg) 88%, transparent); backdrop-filter:saturate(1.1) blur(8px); border-bottom:1px solid var(--line)}
+.bar-in{max-width:900px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; gap:12px}
+.brand{display:flex; align-items:baseline; gap:9px; margin-right:auto}
+.brand .mk{font-size:18px}
+.brand .name{font-weight:700; letter-spacing:-.02em; font-size:16px}
+.brand .sub{font-size:10.5px; text-transform:uppercase; letter-spacing:.14em; color:var(--muted)}
+.themebtn{border:1px solid var(--line-strong); background:var(--panel); color:var(--muted); width:34px; height:34px; border-radius:8px; cursor:pointer}
+main{max-width:900px; margin:0 auto; padding:22px 20px 160px}
+h2{font-size:13px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin:26px 0 12px; font-family:"IBM Plex Mono",monospace}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px}
+.inp{font-family:inherit; font-size:15px; color:var(--ink); background:var(--panel-2); border:1px solid var(--line-strong); border-radius:9px; padding:10px 12px; width:100%}
+.inp:focus{outline:2px solid var(--accent); border-color:var(--accent)}
+select.inp{appearance:none; cursor:pointer; padding-right:34px; background-repeat:no-repeat; background-position:right 12px center;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%236E717B' stroke-width='1.6'/></svg>")}
+label.fld{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin:0 0 6px}
+.grid{display:grid; gap:14px; grid-template-columns:2fr 1fr 1fr}
+@media (max-width:640px){ .grid{grid-template-columns:1fr} }
+.btn{font-family:inherit; font-weight:600; font-size:14.5px; border-radius:9px; padding:11px 20px; cursor:pointer; border:1px solid transparent}
+.btn.primary{background:var(--accent); color:#fff}
+:root[data-theme="dark"] .btn.primary,:root:not([data-theme="light"]) .btn.primary{color:#1B1E24}
+.btn.primary[disabled]{opacity:.5; cursor:not-allowed}
+.btn.ghost{background:transparent; border:1px solid var(--line-strong); color:var(--muted)}
+.btn.sm{padding:7px 12px; font-size:13px}
+/* login */
+.login{max-width:380px; margin:80px auto; text-align:center}
+.login .mk{font-size:44px; margin-bottom:12px}
+.login h1{font-size:22px; margin:0 0 6px}
+.login p{color:var(--muted); margin:0 0 20px; font-size:14px}
+.login .row{display:flex; gap:10px}
+.warn{color:var(--crit); font-size:13px; margin-top:10px; min-height:1em}
+/* toolbar */
+.toolbar{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:6px}
+.toolbar .fldwrap{flex:1; min-width:220px}
+/* driver panels */
+.dpanel{background:var(--panel); border:1px solid var(--line-strong); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:16px; overflow:hidden}
+.dhead{display:flex; align-items:center; gap:11px; padding:13px 16px; border-bottom:1px solid var(--line); background:var(--panel-2)}
+.dhead .dot{width:11px; height:11px; border-radius:50%}
+.dhead h3{margin:0; font-size:15px; font-weight:700}
+.dhead .c{margin-left:auto; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--faint)}
+.qrow{display:flex; gap:12px; padding:13px 16px; border-bottom:1px solid var(--line); cursor:pointer}
+.qrow:last-child{border-bottom:none}
+.qrow:hover{background:var(--panel-2)}
+.qrow input{margin-top:3px; width:17px; height:17px; accent-color:var(--accent); flex:none; cursor:pointer}
+.qrow.sel{background:color-mix(in srgb,var(--accent-soft) 55%, var(--panel))}
+.qtext{font-family:"Newsreader",Georgia,serif; font-size:15.5px; line-height:1.4}
+.tags{margin-top:7px; display:flex; flex-wrap:wrap; gap:6px}
+.tag{font-family:"IBM Plex Mono",monospace; font-size:10px; color:var(--muted); background:var(--panel-2); border:1px solid var(--line); border-radius:5px; padding:2px 7px}
+.tag.sub{color:var(--accent-ink); background:var(--accent-soft); border-color:transparent}
+.tag.rating{color:var(--ok); border-color:color-mix(in srgb,var(--ok) 40%, transparent)}
+/* people */
+.prow{display:flex; gap:10px; margin-bottom:10px}
+.prow .n{flex:2} .prow .r{flex:1.4}
+.prow button{flex:none}
+/* action bar */
+.actionbar{position:fixed; left:0; right:0; bottom:0; z-index:45; border-top:1px solid var(--line); background:color-mix(in srgb,var(--bg) 92%, transparent); backdrop-filter:blur(8px)}
+.action-in{max-width:900px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; gap:14px}
+.tally{font-family:"IBM Plex Mono",monospace; font-size:13px; color:var(--muted)}
+.tally b{color:var(--ink)}
+.spacer{margin-left:auto}
+/* result */
+.result{background:var(--panel); border:1px solid var(--ok); border-radius:var(--radius); box-shadow:var(--shadow); padding:22px; margin-top:8px}
+.result .big{font-size:30px; margin-bottom:6px}
+.linkrow{display:flex; gap:10px; margin-top:14px}
+.linkrow input{font-family:"IBM Plex Mono",monospace; font-size:13px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
 
-// Question field ids (read-only here) + the 6 drivers by record id.
-const QF = {
-  text: 'fldOJDPlvyE4AuQzK', subtheme: 'fld1hDED3iwnxFTeq', order: 'fldoyGFH5qZFResyt',
-  type: 'fldcXwo62r0FYiv7L', driver: 'fldXpppMQyyhBTb3L', func: 'fldikNOxyUrWk4onr',
-  scenario: 'fldDx2SSaS7eW1iK6',
-};
-const DRIVER_BY_ID = {
-  recTNRFgAJLt80Bsh: 'Culture', recnIZyrICBHaZw9B: 'Strategy', recnNWlcqD9InQ22p: 'Structure',
-  rec7hn71vADFJFGcn: 'Execution', recJcIM6i3CDfQEui: 'Innovation', recASBOypstgCKQeW: 'Leadership',
-};
+<div class="bar"><div class="bar-in">
+  <div class="brand"><span class="mk">🧭</span><span class="name">Core 4+2</span><span class="sub">Question Picker</span></div>
+  <button class="themebtn" id="theme" title="Toggle theme" aria-label="Toggle theme">☾</button>
+</div></div>
 
-async function loadQuestions() {
-  const recs = await listAll(T.QUESTIONS);
-  return recs.map(r => {
-    const c = r.fields;
-    const drv = Array.isArray(c[QF.driver]) ? c[QF.driver][0] : null;
-    return {
-      id: r.id,
-      text: c[QF.text] || '',
-      subtheme: c[QF.subtheme] || '',
-      order: (typeof c[QF.order] === 'number') ? c[QF.order] : 999,
-      type: selName(c[QF.type]) || 'Open text',
-      driver: drv ? (DRIVER_BY_ID[linkId(drv)] || null) : null,
-      functions: Array.isArray(c[QF.func]) ? c[QF.func].map(selName).filter(Boolean) : [],
-      scenarios: Array.isArray(c[QF.scenario]) ? c[QF.scenario].map(selName).filter(Boolean) : [],
-    };
+<main>
+  <!-- LOADING -->
+  <div class="login" id="loading">
+    <div class="mk">🧭</div>
+    <h1>Question Picker</h1>
+    <p id="loadmsg">Loading the question bank…</p>
+  </div>
+
+  <!-- APP -->
+  <div id="app" hidden>
+    <h2>1 · Choose a scenario</h2>
+    <div class="toolbar">
+      <div class="fldwrap">
+        <label class="fld" for="scenario">Scenario</label>
+        <select class="inp" id="scenario"></select>
+      </div>
+    </div>
+
+    <h2>2 · Pick the questions</h2>
+    <div id="questions"></div>
+
+    <h2>3 · The engagement</h2>
+    <div class="card">
+      <div class="grid">
+        <div><label class="fld" for="engName">Engagement name</label><input class="inp" id="engName" placeholder="e.g. Acme Corp — PMI diagnostic"></div>
+        <div><label class="fld" for="engClient">Client / company</label><input class="inp" id="engClient" placeholder="Acme Corp"></div>
+        <div><label class="fld" for="engType">Type</label><select class="inp" id="engType"><option>Individual</option><option>Organization</option></select></div>
+      </div>
+    </div>
+
+    <h2>4 · The people</h2>
+    <div class="card">
+      <div id="people"></div>
+      <button class="btn ghost sm" id="addPerson">+ Add person</button>
+    </div>
+
+    <!-- RESULT -->
+    <div id="result" hidden></div>
+  </div>
+</main>
+
+<div class="actionbar" id="actionbar" hidden><div class="action-in">
+  <span class="tally" id="tally">0 questions selected</span>
+  <button class="btn primary spacer" id="create" disabled>Create &amp; get link →</button>
+</div></div>
+
+<script>
+const API='/api/admin';
+const DRIVER_ORDER=['Culture','Strategy','Structure','Execution','Innovation','Leadership'];
+const DRIVER_COLOR={Culture:"#B06E3A",Strategy:"#3E7E86",Structure:"#6B7BB0",Execution:"#B0700A",Innovation:"#7C9A45",Leadership:"#9A5B8C"};
+const SCENARIOS=['General Diagnostic','Distressed SME Turnaround','Post-merger Integration','Distressed Franchise','Small Business Diagnostic','Franchise'];
+const ROLES=["CEO / President","CFO","COO","CSO","CIO / CTO","Owner / Founder","Division / BU Head","Sales Director","Marketing Director","Product / R&D / Innovation Lead","Operations Manager","HR Director","Manager / Team Lead","General Counsel","Corporate Development","Generic / All"];
+const state={ questions:[], scenario:SCENARIOS[0], selected:new Set(), people:[] };
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+document.getElementById('theme').addEventListener('click',()=>{const c=document.documentElement.getAttribute('data-theme');const dark=c==='dark'||(!c&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',dark?'light':'dark')});
+
+async function api(payload){
+  const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data=await res.json().catch(()=>({error:'Bad response'}));
+  if(!res.ok) throw new Error(data.error||('Error '+res.status));
+  return data;
+}
+
+// ---- boot: load the question bank straight away (no password) ----
+async function boot(){
+  const msg=document.getElementById('loadmsg');
+  try{
+    const data=await api({action:'questions'});
+    state.questions=data.questions||[];
+    document.getElementById('loading').hidden=true;
+    document.getElementById('app').hidden=false;
+    document.getElementById('actionbar').hidden=false;
+    initApp();
+  }catch(err){
+    msg.innerHTML=esc(err.message)+' <br><button class="btn ghost sm" id="retry" style="margin-top:12px">Try again</button>';
+    const rb=document.getElementById('retry'); if(rb) rb.addEventListener('click',boot);
+  }
+}
+boot();
+
+// ---- app ----
+function initApp(){
+  const sc=document.getElementById('scenario');
+  sc.innerHTML=SCENARIOS.map(s=>`<option>${esc(s)}</option>`).join('');
+  sc.value=state.scenario;
+  sc.addEventListener('change',()=>{ state.scenario=sc.value; renderQuestions(); });
+  document.getElementById('addPerson').addEventListener('click',()=>{ state.people.push({name:'',role:''}); renderPeople(); });
+  document.getElementById('create').addEventListener('click',create);
+  ['engName'].forEach(id=>document.getElementById(id).addEventListener('input',refresh));
+  state.people=[{name:'',role:''},{name:'',role:''}];
+  renderQuestions(); renderPeople(); refresh();
+}
+
+function forScenario(q){ return !q.scenarios || !q.scenarios.length || q.scenarios.indexOf(state.scenario)>=0; }
+
+function renderQuestions(){
+  const wrap=document.getElementById('questions'); wrap.innerHTML='';
+  DRIVER_ORDER.forEach(driver=>{
+    const qs=state.questions.filter(q=>q.driver===driver && forScenario(q)).sort((a,b)=>(a.order||999)-(b.order||999));
+    if(!qs.length) return;
+    const sel=qs.filter(q=>state.selected.has(q.id)).length;
+    const panel=document.createElement('div'); panel.className='dpanel';
+    panel.innerHTML=`<div class="dhead"><span class="dot" style="background:${DRIVER_COLOR[driver]||'var(--accent)'}"></span><h3>${esc(driver)}</h3><span class="c" data-c>${sel} of ${qs.length} picked</span></div>`;
+    qs.forEach(q=>{
+      const row=document.createElement('div'); row.className='qrow'+(state.selected.has(q.id)?' sel':'');
+      const fns=(q.functions||[]).map(f=>`<span class="tag">${esc(f)}</span>`).join('');
+      row.innerHTML=`<input type="checkbox" ${state.selected.has(q.id)?'checked':''}>
+        <div><div class="qtext">${esc(q.text)}</div><div class="tags">${q.subtheme?`<span class="tag sub">${esc(q.subtheme)}</span>`:''}${q.type==='Rating'?'<span class="tag rating">1–5 rating</span>':''}${fns}</div></div>`;
+      const cb=row.querySelector('input');
+      function toggle(v){ if(v){state.selected.add(q.id);}else{state.selected.delete(q.id);} row.classList.toggle('sel',v); cb.checked=v;
+        panel.querySelector('[data-c]').textContent=`${qs.filter(x=>state.selected.has(x.id)).length} of ${qs.length} picked`; refresh(); }
+      row.addEventListener('click',e=>{ if(e.target!==cb) toggle(!cb.checked); });
+      cb.addEventListener('change',()=>toggle(cb.checked));
+      panel.appendChild(row);
+    });
+    wrap.appendChild(panel);
   });
 }
 
-module.exports = async (req, res) => {
-  try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-    const action = body.action || (req.query && req.query.action) || '';
+function renderPeople(){
+  const wrap=document.getElementById('people'); wrap.innerHTML='';
+  state.people.forEach((p,i)=>{
+    const row=document.createElement('div'); row.className='prow';
+    row.innerHTML=`<input class="inp n" placeholder="Full name" value="${esc(p.name)}">
+      <select class="inp r"><option value="">Role…</option>${ROLES.map(r=>`<option${r===p.role?' selected':''}>${esc(r)}</option>`).join('')}</select>
+      <button class="btn ghost sm" title="Remove">✕</button>`;
+    const [nameEl,roleEl,delEl]=[row.querySelector('.n'),row.querySelector('.r'),row.querySelector('button')];
+    nameEl.addEventListener('input',()=>{p.name=nameEl.value; refresh();});
+    roleEl.addEventListener('change',()=>{p.role=roleEl.value;});
+    delEl.addEventListener('click',()=>{ state.people.splice(i,1); if(!state.people.length) state.people.push({name:'',role:''}); renderPeople(); refresh(); });
+    wrap.appendChild(row);
+  });
+}
 
-    // No password gate — access is controlled by keeping this URL private.
+function refresh(){
+  const n=state.selected.size;
+  const drivers=new Set(state.questions.filter(q=>state.selected.has(q.id)).map(q=>q.driver)).size;
+  document.getElementById('tally').innerHTML=`<b>${n}</b> question${n===1?'':'s'} selected${n?` · ${drivers} driver${drivers===1?'':'s'}`:''}`;
+  const nameOk=(document.getElementById('engName').value||'').trim().length>0;
+  document.getElementById('create').disabled=!(n>0 && nameOk);
+}
 
-    if (action === 'questions') {
-      const questions = await loadQuestions();
-      res.setHeader('Cache-Control', 'no-store');
-      return res.status(200).json({ ok: true, questions });
-    }
+async function create(){
+  const btn=document.getElementById('create'); btn.disabled=true; btn.textContent='Creating…';
+  const payload={
+    action:'create',
+    engagement:{ name:document.getElementById('engName').value.trim(), client:document.getElementById('engClient').value.trim(), type:document.getElementById('engType').value },
+    questionIds:[...state.selected],
+    people:state.people.filter(p=>(p.name||'').trim()).map(p=>({name:p.name.trim(),role:p.role||''})),
+  };
+  try{
+    const data=await api(payload);
+    showResult(data.link);
+  }catch(err){ alert(err.message); btn.disabled=false; btn.textContent='Create & get link →'; }
+}
 
-    if (action === 'create') {
-      const eng = body.engagement || {};
-      const name = (eng.name || '').toString().trim();
-      const qIds = Array.isArray(body.questionIds) ? body.questionIds.filter(id => /^rec[A-Za-z0-9]{14}$/.test(id)) : [];
-      const people = Array.isArray(body.people) ? body.people.filter(p => p && (p.name || '').toString().trim()) : [];
-      if (!name) return res.status(400).json({ error: 'Give the engagement a name.' });
-      if (!qIds.length) return res.status(400).json({ error: 'Pick at least one question.' });
-
-      const qnr = await createRecords(T.QUESTIONNAIRES, [{ fields: { [F.qnr.name]: name, [F.qnr.questions]: qIds } }]);
-      const qnrId = qnr[0].id;
-
-      const engFields = { [F.eng.name]: name, [F.eng.questionnaire]: [qnrId], [F.eng.status]: 'Setup' };
-      if (eng.client) engFields[F.eng.client] = eng.client.toString().trim();
-      if (eng.type) engFields[F.eng.type] = eng.type; // 'Individual' | 'Organization'
-      const engRec = await createRecords(T.ENGAGEMENTS, [{ fields: engFields }]);
-      const engId = engRec[0].id;
-
-      if (people.length) {
-        await createRecords(T.RESPONDENTS, people.map(p => ({
-          fields: {
-            [F.resp.name]: (p.name || '').toString().trim(),
-            [F.resp.role]: (p.role || '').toString().trim(),
-            [F.resp.engagement]: [engId],
-          },
-        })));
-      }
-
-      const host = (req.headers && req.headers.host) || 'coreos-4plus2-form.vercel.app';
-      return res.status(200).json({ ok: true, engagementId: engId, link: `https://${host}/?e=${engId}` });
-    }
-
-    return res.status(400).json({ error: 'Unknown action.' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+function showResult(link){
+  document.getElementById('actionbar').hidden=true;
+  const r=document.getElementById('result'); r.hidden=false;
+  r.innerHTML=`<div class="big">✓</div><h1 style="margin:0 0 6px;font-size:20px">Diagnostic created</h1>
+    <p style="color:var(--muted);margin:0">Send this one link to everyone in the engagement. Each person picks their name and sees only their own questions.</p>
+    <div class="linkrow"><input class="inp" id="outlink" readonly value="${esc(link)}"><button class="btn primary" id="copy">Copy</button></div>
+    <div style="margin-top:14px;display:flex;gap:10px">
+      <a class="btn ghost sm" href="${esc(link)}" target="_blank" rel="noopener">Open as respondent ↗</a>
+      <button class="btn ghost sm" id="again">Build another</button>
+    </div>`;
+  r.scrollIntoView({behavior:'smooth'});
+  document.getElementById('copy').addEventListener('click',()=>{ const i=document.getElementById('outlink'); i.select(); try{document.execCommand('copy');}catch(e){} navigator.clipboard&&navigator.clipboard.writeText(i.value); document.getElementById('copy').textContent='Copied ✓'; });
+  document.getElementById('again').addEventListener('click',()=>{ state.selected=new Set(); state.people=[{name:'',role:''},{name:'',role:''}]; document.getElementById('engName').value=''; document.getElementById('engClient').value=''; r.hidden=true; document.getElementById('actionbar').hidden=false; renderQuestions(); renderPeople(); refresh(); window.scrollTo(0,0); });
+}
+</script>
+</body>
+</html>
