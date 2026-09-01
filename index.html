@@ -196,8 +196,6 @@ const state={ data:null, answers:{}, ratings:{}, respId:null, name:'', role:'', 
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function qs(k){return new URLSearchParams(location.search).get(k)}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-// Vercel free-tier functions sleep when idle; the first hit after that can 5xx or drop.
-// Retry a few times with a short backoff so a cold start never reaches the respondent.
 async function fetchRetry(url,opts,tries=7,onRetry){
   let lastErr;
   for(let i=0;i<tries;i++){
@@ -217,11 +215,10 @@ function showMsg(html){ document.getElementById('main').innerHTML='<div class="m
 async function boot(){
   const e=qs('e');
   if(e){ state.fromPick=false; loadEngagement(e); return; }
-  if(qs('pick')!==null){ showPicker(); return; }   // universal link: choose an engagement first
+  if(qs('pick')!==null){ showPicker(); return; }
   showLanding();
 }
 
-// Load one engagement by id and drop the respondent into the intro step.
 async function loadEngagement(e){
   document.getElementById('main').innerHTML='<div class="msg" id="loading"><div class="spinner"></div><p>Loading your diagnostic…</p></div>';
   document.getElementById('actionbar').style.display='none';
@@ -230,13 +227,11 @@ async function loadEngagement(e){
     const res=await fetchRetry('/api/engagement?e='+encodeURIComponent(e),undefined,4,()=>{ if(note) note.textContent='Waking things up — one moment…'; });
     const data=await res.json();
     if(!res.ok) throw new Error(data.error||'Could not load this diagnostic.');
-    // reset per-engagement answer state (so going back to the picker starts clean)
     state.data=data; state.answers={}; state.ratings={}; state.respId=null; state.name=''; state.role=''; state.filteredGroups=null;
     render();
   }catch(err){ showMsg('<div class="big">⚠️</div><h2>Couldn’t load the diagnostic</h2><p>'+esc(err.message)+'</p><p style="margin-top:14px"><a href="'+location.pathname+location.search+'" style="color:var(--accent)">Try again</a></p>'); }
 }
 
-// The universal-link first screen: pick which engagement (client) you're answering for.
 async function showPicker(code){
   const sub=document.querySelector('.brand .sub'); if(sub) sub.textContent='Core 4+2 diagnostic';
   document.getElementById('main').innerHTML='<div class="msg" id="loading"><div class="spinner"></div><p>Loading engagements…</p></div>';
@@ -373,7 +368,6 @@ function render(){
       <div id="body"></div>
     </div>`;
 
-  // ---- name type-ahead (combobox over the engagement roster) ----
   const roster = d.roster || [];
   const who=document.getElementById('who');
   const list=document.getElementById('wholist');
@@ -404,7 +398,7 @@ function render(){
     else return;
     opts.forEach((o,i)=>o.classList.toggle('active',i===active));
   });
-  list.addEventListener('mousedown',ev=>{           // mousedown fires before the input's blur
+  list.addEventListener('mousedown',ev=>{
     const opt=ev.target.closest('.combo-opt[data-i]'); if(!opt) return;
     ev.preventDefault(); pickResp(matches[Number(opt.dataset.i)]);
   });
@@ -415,7 +409,7 @@ function render(){
   const bp=document.getElementById('backPick'); if(bp) bp.addEventListener('click',()=>showPicker(state.pickCode||''));
   document.getElementById('backIntro').addEventListener('click',()=>goStep('intro'));
   document.getElementById('toQ').addEventListener('click',()=>{
-    resolveRespondent();                            // typed-but-not-clicked exact name → attribute to the roster record
+    resolveRespondent();
     state.role = currentRole();
     state.filteredGroups = questionsForRole(state.role);
     buildQuestions(state.filteredGroups);
@@ -427,8 +421,6 @@ function render(){
   refresh();
 }
 
-// If they typed their full name but never clicked it, still attribute to the roster record
-// (keeps one canonical name instead of creating "Harm" alongside "Harm B. Stratman").
 function resolveRespondent(){
   if(state.respId) return { id:state.respId, name:state.name };
   const typed=((document.getElementById('who')||{}).value||'').trim();
@@ -437,8 +429,6 @@ function resolveRespondent(){
   return { id:null, name:typed };
 }
 function currentRole(){ const r=document.getElementById('role'); return (r&&r.value)||state.role||''; }
-// Show a question only if it's tagged for this person's function, tagged "Generic / All",
-// or has no function tag at all. If filtering would leave nothing, fall back to everything.
 function questionsForRole(role){
   const groups = state.data.groups.map(g=>({
     driver:g.driver,
@@ -518,7 +508,6 @@ async function submit(){
   }
 }
 
-// Thank-you screen with an automatically-assembled personal copy (no email involved).
 function showThanks(name, role, recorded, groups){
   const d=state.data;
   const when=new Date();
@@ -554,7 +543,6 @@ function showThanks(name, role, recorded, groups){
   document.getElementById('copyDl').addEventListener('click',()=>downloadCopy(name, sheet));
 }
 
-// Build a standalone HTML file of the copy and hand it to the browser to save.
 function downloadCopy(name, sheetHtml){
   const css=`body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#181A1E;background:#fff;max-width:680px;margin:24px auto;padding:0 18px;line-height:1.5}
     .copysheet{padding:0}.ch{display:flex;gap:12px;align-items:center;border-bottom:1px solid #ddd;padding-bottom:12px;margin-bottom:14px}
