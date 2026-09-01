@@ -130,6 +130,43 @@ select.inp{appearance:none; cursor:pointer; padding-right:36px; background-repea
 .stepnav{display:flex; align-items:center; gap:12px; margin-top:22px; justify-content:flex-end}
 .btn.ghost{background:transparent; border:1px solid var(--line-strong); color:var(--muted); margin-right:auto}
 .btn.ghost:hover{color:var(--ink)}
+/* type-ahead combobox (respondent name) */
+.combo{position:relative}
+.combo-list{position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:30; background:var(--panel); border:1px solid var(--line-strong); border-radius:9px; box-shadow:var(--shadow); max-height:240px; overflow-y:auto; display:none}
+.combo-list.open{display:block}
+.combo-opt{padding:9px 12px; cursor:pointer; display:flex; align-items:baseline; gap:8px; border-bottom:1px solid var(--line)}
+.combo-opt:last-child{border-bottom:none}
+.combo-opt:hover,.combo-opt.active{background:var(--panel-2)}
+.combo-opt .nm{font-weight:600; font-size:14.5px}
+.combo-opt .rl{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--faint); margin-left:auto}
+.combo-opt.addnew{color:var(--accent-ink)}
+.combo-opt.none{color:var(--muted); cursor:default}
+.combohint{font-size:12px; color:var(--muted); margin-top:2px; min-height:1px}
+.combohint b{color:var(--accent-ink); font-weight:600}
+/* answer copy on the thank-you screen */
+.copywrap{max-width:640px; margin:0 auto}
+.copysheet{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:26px; margin:22px 0; text-align:left}
+.copysheet .ch{display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--line); padding-bottom:14px; margin-bottom:16px}
+.copysheet .ch img{height:34px; width:auto; background:#fff; border:1px solid var(--line); border-radius:7px; padding:5px 9px}
+.copysheet .ch .ct b{font-size:15px; display:block}
+.copysheet .ch .ct span{font-size:12px; color:var(--muted)}
+.copysheet .cmeta{font-size:13px; color:var(--muted); margin-bottom:18px; line-height:1.6}
+.copysheet .cgrp{margin-bottom:16px}
+.copysheet .cgrp h4{font-size:12px; text-transform:uppercase; letter-spacing:.1em; margin:0 0 8px; display:flex; align-items:center; gap:8px}
+.copysheet .cgrp h4 .d{width:9px; height:9px; border-radius:50%}
+.copysheet .ci{padding:8px 0; border-top:1px dotted var(--line)}
+.copysheet .ci .cq{font-family:"Newsreader",Georgia,serif; font-size:14.5px; line-height:1.4}
+.copysheet .ci .ca{font-size:14px; margin-top:4px; white-space:pre-wrap}
+.copysheet .ci .ca.rate{font-family:"IBM Plex Mono",monospace; color:var(--accent-ink)}
+.copybtns{display:flex; gap:10px; justify-content:center; flex-wrap:wrap}
+.btn.subtle{background:var(--panel); border:1px solid var(--line-strong); color:var(--ink)}
+.btn.subtle:hover{border-color:var(--accent)}
+@media print{
+  .bar,.actionbar,.copybtns,.msg .big,.msg h2,.msg p{display:none !important}
+  body{background:#fff}
+  main{padding:0}
+  .copysheet{border:none; box-shadow:none; margin:0; padding:0}
+}
 </style>
 </head>
 <body>
@@ -155,7 +192,7 @@ try{ document.getElementById('brandlogo').src=BRAND_LOGO; }catch(e){}
 const ROLES=["CEO / President","CFO","COO","CSO","CIO / CTO","Owner / Founder","Division / BU Head","Sales Director","Marketing Director","Product / R&D / Innovation Lead","Operations Manager","HR Director","Manager / Team Lead","General Counsel","Corporate Development"];
 const DRIVER_COLOR={Culture:"#B06E3A",Strategy:"#3E7E86",Structure:"#6B7BB0",Execution:"#B0700A",Innovation:"#7C9A45",Leadership:"#9A5B8C"};
 const LEVELS=[{n:1,lab:"Absent",v:"var(--lvl1)"},{n:2,lab:"Emerging",v:"var(--lvl2)"},{n:3,lab:"Defined",v:"var(--lvl3)"},{n:4,lab:"Managed",v:"var(--lvl4)"},{n:5,lab:"Embedded",v:"var(--lvl5)"}];
-const state={ data:null, answers:{}, ratings:{}, respId:null, name:'', role:'', filteredGroups:null };
+const state={ data:null, answers:{}, ratings:{}, respId:null, name:'', role:'', filteredGroups:null, fromPick:false, pickCode:'' };
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function qs(k){return new URLSearchParams(location.search).get(k)}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -179,14 +216,81 @@ function showMsg(html){ document.getElementById('main').innerHTML='<div class="m
 
 async function boot(){
   const e=qs('e');
-  if(!e){ showLanding(); return; }
+  if(e){ state.fromPick=false; loadEngagement(e); return; }
+  if(qs('pick')!==null){ showPicker(); return; }   // universal link: choose an engagement first
+  showLanding();
+}
+
+// Load one engagement by id and drop the respondent into the intro step.
+async function loadEngagement(e){
+  document.getElementById('main').innerHTML='<div class="msg" id="loading"><div class="spinner"></div><p>Loading your diagnostic…</p></div>';
+  document.getElementById('actionbar').style.display='none';
   const note=document.querySelector('#loading p');
   try{
     const res=await fetchRetry('/api/engagement?e='+encodeURIComponent(e),undefined,4,()=>{ if(note) note.textContent='Waking things up — one moment…'; });
     const data=await res.json();
     if(!res.ok) throw new Error(data.error||'Could not load this diagnostic.');
-    state.data=data; render();
+    // reset per-engagement answer state (so going back to the picker starts clean)
+    state.data=data; state.answers={}; state.ratings={}; state.respId=null; state.name=''; state.role=''; state.filteredGroups=null;
+    render();
   }catch(err){ showMsg('<div class="big">⚠️</div><h2>Couldn’t load the diagnostic</h2><p>'+esc(err.message)+'</p><p style="margin-top:14px"><a href="'+location.pathname+location.search+'" style="color:var(--accent)">Try again</a></p>'); }
+}
+
+// The universal-link first screen: pick which engagement (client) you're answering for.
+async function showPicker(code){
+  const sub=document.querySelector('.brand .sub'); if(sub) sub.textContent='Core 4+2 diagnostic';
+  document.getElementById('main').innerHTML='<div class="msg" id="loading"><div class="spinner"></div><p>Loading engagements…</p></div>';
+  document.getElementById('actionbar').style.display='none';
+  try{
+    const url='/api/engagements'+(code?('?code='+encodeURIComponent(code)):'');
+    const res=await fetchRetry(url,undefined,4);
+    const data=await res.json();
+    if(res.status===401 && data && data.needCode){ renderCodeGate(data.message); return; }
+    if(!res.ok) throw new Error(data.error||'Could not load engagements.');
+    state.pickCode=code||''; renderPicker(data.engagements||[]);
+  }catch(err){ showMsg('<div class="big">⚠️</div><h2>Couldn’t load engagements</h2><p>'+esc(err.message)+'</p>'); }
+}
+
+function renderCodeGate(message){
+  document.getElementById('main').innerHTML=`
+    <div class="stepwrap"><div class="introcard" style="max-width:460px;margin:40px auto">
+      <div class="ik">Access</div>
+      <h2 class="ititle">Enter your access code</h2>
+      <p class="ip">${esc(message||'This diagnostic is protected. Enter the code you were given to continue.')}</p>
+      <div class="idcard" style="grid-template-columns:1fr">
+        <div class="fld full"><label for="gate">Access code</label>
+          <input class="inp" id="gate" autocomplete="off" placeholder="Enter code"></div>
+      </div>
+      <div class="stepnav"><button class="btn primary" id="gateGo">Continue →</button></div>
+      <div class="warn" id="gateWarn" style="display:none"></div>
+    </div></div>`;
+  document.getElementById('actionbar').style.display='none';
+  const go=()=>{ const c=(document.getElementById('gate').value||'').trim(); if(c) showPicker(c); };
+  document.getElementById('gateGo').addEventListener('click',go);
+  document.getElementById('gate').addEventListener('keydown',ev=>{ if(ev.key==='Enter') go(); });
+}
+
+function renderPicker(engagements){
+  const opts=engagements.map(e=>{
+    const label=e.client ? `${e.client} — ${e.name}` : e.name;
+    return `<option value="${esc(e.id)}">${esc(label)}</option>`;
+  }).join('');
+  document.getElementById('main').innerHTML=`
+    <div class="stepwrap"><div class="introcard" style="max-width:520px;margin:34px auto">
+      <div class="ik">Core 4+2 Diagnostic</div>
+      <h2 class="ititle">Which diagnostic are you here for?</h2>
+      <p class="ip">Choose your organisation's engagement, then confirm your name on the next screen.</p>
+      <div class="idcard" style="grid-template-columns:1fr">
+        <div class="fld full"><label for="pickEng">Engagement</label>
+          <select class="inp" id="pickEng"><option value="">Select…</option>${opts}</select></div>
+      </div>
+      <div class="stepnav"><button class="btn primary" id="pickGo" disabled>Continue →</button></div>
+      ${engagements.length?'':'<p class="ip" style="color:var(--muted)">No engagements are available yet.</p>'}
+    </div></div>`;
+  document.getElementById('actionbar').style.display='none';
+  const sel=document.getElementById('pickEng'), go=document.getElementById('pickGo');
+  sel.addEventListener('change',()=>{ go.disabled=!sel.value; });
+  go.addEventListener('click',()=>{ if(sel.value){ state.fromPick=true; loadEngagement(sel.value); } });
 }
 
 function showLanding(){
@@ -233,7 +337,6 @@ function goStep(s){
 
 function render(){
   const d=state.data;
-  const rosterOpts=d.roster.map(r=>`<option value="${esc(r.id)}" data-role="${esc(r.role)}" data-name="${esc(r.name)}">${esc(r.name)}</option>`).join('');
   const roleOpts='<option value="">Select role…</option>'+ROLES.map(r=>`<option>${esc(r)}</option>`).join('');
   document.getElementById('main').innerHTML=`
     <div id="step-intro" class="stepwrap">
@@ -242,19 +345,23 @@ function render(){
         <h2 class="ititle">${esc(d.engagement.name)}</h2>
         <p class="ip">You've been asked to take part in a short, candid diagnostic — about <b>${d.totalQuestions} questions</b> across <b>${d.groups.length} drivers</b>, roughly ten minutes. Blunt is more useful than polished; your honest read is exactly the point.</p>
         <p class="ip">No login, nothing to install.</p>
-        <div class="stepnav"><button class="btn primary" id="beginBtn">Begin →</button></div>
+        <div class="stepnav">${state.fromPick?'<button class="btn ghost" id="backPick">← Different engagement</button>':''}<button class="btn primary" id="beginBtn">Begin →</button></div>
       </div>
     </div>
     <div id="step-id" class="stepwrap" style="display:none">
       <div class="introcard">
         <div class="ik">Step 1 of 2 · Who are you?</div>
         <h2 class="ititle">Confirm your name</h2>
-        <p class="ip">Pick your name from the list so your answers are attributed correctly.</p>
+        <p class="ip">Start typing your name and pick yourself from the list, so your answers are attributed correctly.</p>
         <div class="idcard">
           <div class="fld full"><label for="who">Your name</label>
-            <select class="inp" id="who"><option value="">Select your name…</option>${rosterOpts}<option value="__other">I’m not listed…</option></select></div>
-          <div class="fld"><label for="role">Role</label><select class="inp" id="role">${roleOpts}</select></div>
-          <div class="fld" id="otherWrap" style="display:none"><label for="otherName">Your name</label><input class="inp" id="otherName" placeholder="Type your full name"></div>
+            <div class="combo">
+              <input class="inp" id="who" autocomplete="off" placeholder="Start typing your name…">
+              <div class="combo-list" id="wholist"></div>
+            </div>
+            <div class="combohint" id="whohint"></div>
+          </div>
+          <div class="fld full"><label for="role">Role</label><select class="inp" id="role">${roleOpts}</select></div>
         </div>
         <div class="stepnav"><button class="btn ghost" id="backIntro">← Back</button><button class="btn primary" id="toQ" disabled>Continue →</button></div>
       </div>
@@ -266,20 +373,49 @@ function render(){
       <div id="body"></div>
     </div>`;
 
+  // ---- name type-ahead (combobox over the engagement roster) ----
+  const roster = d.roster || [];
   const who=document.getElementById('who');
-  who.addEventListener('change',()=>{
-    const o=who.selectedOptions[0];
-    document.getElementById('otherWrap').style.display = who.value==='__other' ? '' : 'none';
-    if(who.value && who.value!=='__other'){
-      state.respId=who.value; state.name=o.getAttribute('data-name')||'';
-      const role=o.getAttribute('data-role'); if(role){ document.getElementById('role').value=role; state.role=role; }
-    } else { state.respId=null; }
-    refresh();
+  const list=document.getElementById('wholist');
+  const hint=document.getElementById('whohint');
+  let matches=[], active=-1;
+  function closeList(){ list.classList.remove('open'); list.innerHTML=''; active=-1; }
+  function openList(){
+    const term=(who.value||'').trim().toLowerCase();
+    matches = term ? roster.filter(r=>r.name.toLowerCase().includes(term)) : roster.slice();
+    let html = matches.map((r,i)=>`<div class="combo-opt" data-i="${i}"><span class="nm">${esc(r.name)}</span>${r.role?`<span class="rl">${esc(r.role)}</span>`:''}</div>`).join('');
+    if(term && !matches.length) html = `<div class="combo-opt none">No match — you'll be added as “${esc(who.value.trim())}”. Pick your role below.</div>`;
+    if(!roster.length && !term) html = `<div class="combo-opt none">No names registered yet — type your full name to continue.</div>`;
+    list.innerHTML=html; list.classList.toggle('open', !!html); active=-1;
+  }
+  function pickResp(r){
+    state.respId=r.id; state.name=r.name; who.value=r.name;
+    if(r.role){ document.getElementById('role').value=r.role; state.role=r.role; }
+    hint.innerHTML=`✓ Answering as <b>${esc(r.name)}</b>`; closeList(); refresh();
+  }
+  who.addEventListener('focus',openList);
+  who.addEventListener('input',()=>{ state.respId=null; hint.textContent=''; openList(); refresh(); });
+  who.addEventListener('keydown',ev=>{
+    const opts=Array.from(list.querySelectorAll('.combo-opt[data-i]'));
+    if(ev.key==='ArrowDown'){ ev.preventDefault(); active=Math.min(active+1,opts.length-1); }
+    else if(ev.key==='ArrowUp'){ ev.preventDefault(); active=Math.max(active-1,0); }
+    else if(ev.key==='Enter'){ if(active>=0&&opts[active]){ ev.preventDefault(); pickResp(matches[Number(opts[active].dataset.i)]); } return; }
+    else if(ev.key==='Escape'){ closeList(); return; }
+    else return;
+    opts.forEach((o,i)=>o.classList.toggle('active',i===active));
   });
+  list.addEventListener('mousedown',ev=>{           // mousedown fires before the input's blur
+    const opt=ev.target.closest('.combo-opt[data-i]'); if(!opt) return;
+    ev.preventDefault(); pickResp(matches[Number(opt.dataset.i)]);
+  });
+  document.addEventListener('click',ev=>{ if(!ev.target.closest('.combo')) closeList(); });
+
   document.getElementById('role').addEventListener('change',e=>{ state.role=e.target.value; refresh(); });
   document.getElementById('beginBtn').addEventListener('click',()=>goStep('id'));
+  const bp=document.getElementById('backPick'); if(bp) bp.addEventListener('click',()=>showPicker(state.pickCode||''));
   document.getElementById('backIntro').addEventListener('click',()=>goStep('intro'));
   document.getElementById('toQ').addEventListener('click',()=>{
+    resolveRespondent();                            // typed-but-not-clicked exact name → attribute to the roster record
     state.role = currentRole();
     state.filteredGroups = questionsForRole(state.role);
     buildQuestions(state.filteredGroups);
@@ -291,13 +427,16 @@ function render(){
   refresh();
 }
 
-// Which role are we filtering by? A picked roster name carries their registered role;
-// "I'm not listed" uses whatever role they select.
-function currentRole(){
-  const who=document.getElementById('who');
-  if(who && who.value==='__other'){ const r=document.getElementById('role'); return r ? r.value : ''; }
-  return state.role||'';
+// If they typed their full name but never clicked it, still attribute to the roster record
+// (keeps one canonical name instead of creating "Harm" alongside "Harm B. Stratman").
+function resolveRespondent(){
+  if(state.respId) return { id:state.respId, name:state.name };
+  const typed=((document.getElementById('who')||{}).value||'').trim();
+  const hit=(state.data.roster||[]).find(r=>r.name.toLowerCase()===typed.toLowerCase());
+  if(hit){ state.respId=hit.id; state.name=hit.name; const rl=document.getElementById('role'); if(hit.role&&rl){ rl.value=hit.role; state.role=hit.role; } return { id:hit.id, name:hit.name }; }
+  return { id:null, name:typed };
 }
+function currentRole(){ const r=document.getElementById('role'); return (r&&r.value)||state.role||''; }
 // Show a question only if it's tagged for this person's function, tagged "Generic / All",
 // or has no function tag at all. If filtering would leave nothing, fall back to everything.
 function questionsForRole(role){
@@ -350,7 +489,7 @@ function refresh(){
   const total = groups.reduce((n,g)=>n+g.questions.length,0);
   const done=answeredCount();
   const who=document.getElementById('who');
-  const nameOk = state.respId || (who && who.value==='__other' && (document.getElementById('otherName').value||'').trim());
+  const nameOk = !!(state.respId || (who && (who.value||'').trim()));
   const cont=document.getElementById('toQ'); if(cont) cont.disabled=!nameOk;
   document.getElementById('tally').textContent=`${done}/${total} answered`;
   document.getElementById('submit').disabled = !(nameOk && done>0);
@@ -358,24 +497,79 @@ function refresh(){
 
 async function submit(){
   const btn=document.getElementById('submit'); btn.disabled=true; btn.textContent='Recording…';
-  const who=document.getElementById('who');
-  const isOther = who.value==='__other';
-  const name = isOther ? (document.getElementById('otherName').value||'').trim() : state.name;
+  const r=resolveRespondent();
+  const name=r.name||state.name||'';
+  const role=(document.getElementById('role')||{}).value||'';
+  const groups=state.filteredGroups||state.data.groups;
   const items=[];
-  (state.filteredGroups||state.data.groups).forEach(g=>g.questions.forEach(q=>{
+  groups.forEach(g=>g.questions.forEach(q=>{
     items.push({ questionId:q.id, type:q.type, answer:state.answers[q.id]||'', rating:state.ratings[q.id]||null });
   }));
-  const payload={ engagementId:state.data.engagement.id, respondentId: isOther?null:state.respId, name, role:document.getElementById('role').value, items };
+  const payload={ engagementId:state.data.engagement.id, respondentId:r.id, name, role, items };
   try{
     const res=await fetchRetry('/api/submit',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     const data=await res.json();
     if(!res.ok) throw new Error(data.error||'Could not record your answers.');
-    showMsg(`<div class="big">✓</div><h2>Thank you, ${esc(name.split(' ')[0]||'')}</h2><p>Your answers have been recorded — ${data.recorded} response${data.recorded===1?'':'s'} for <b>${esc(state.data.engagement.name)}</b>. You can close this page.</p>`);
+    showThanks(name, role, data.recorded, groups);
   }catch(err){
     btn.disabled=false; btn.textContent='Submit answers';
     let w=document.getElementById('subwarn'); if(!w){ w=document.createElement('div'); w.id='subwarn'; w.className='warn'; document.querySelector('.action-in').appendChild(w); }
     w.textContent=err.message;
   }
+}
+
+// Thank-you screen with an automatically-assembled personal copy (no email involved).
+function showThanks(name, role, recorded, groups){
+  const d=state.data;
+  const when=new Date();
+  const stamp=when.toLocaleString(undefined,{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  let sheet=`<div class="copysheet" id="copysheet">
+    <div class="ch"><img src="${BRAND_LOGO}" alt=""><div class="ct"><b>Brutal Facts — Core 4+2 Diagnostic</b><span>by Core 4 Business Coaching</span></div></div>
+    <div class="cmeta"><b>${esc(d.engagement.name)}</b>${d.engagement.client?' · '+esc(d.engagement.client):''}<br>
+      ${esc(name)}${role?' · '+esc(role):''}<br>Submitted ${esc(stamp)}</div>`;
+  groups.forEach(g=>{
+    const rows=g.questions.map(q=>{
+      let ans='';
+      if(q.type==='Rating'){ const v=state.ratings[q.id]; if(!v) return ''; const L=LEVELS.find(x=>x.n===v);
+        ans=`<div class="ca rate">${v} / 5 — ${esc(L?L.lab:'')}</div>`; }
+      else { const a=(state.answers[q.id]||'').trim(); if(!a) return ''; ans=`<div class="ca">${esc(a)}</div>`; }
+      return `<div class="ci"><div class="cq">${esc(q.text)}</div>${ans}</div>`;
+    }).filter(Boolean).join('');
+    if(!rows) return;
+    sheet+=`<div class="cgrp"><h4><span class="d" style="background:${DRIVER_COLOR[g.driver]||'var(--accent)'}"></span>${esc(g.driver)}</h4>${rows}</div>`;
+  });
+  sheet+='</div>';
+  document.getElementById('main').innerHTML=`<div class="msg copywrap">
+    <div class="big">✓</div>
+    <h2>Thank you, ${esc((name||'').split(' ')[0]||'')}</h2>
+    <p>Your answers have been recorded — ${recorded} response${recorded===1?'':'s'} for <b>${esc(d.engagement.name)}</b>. Below is your own copy to keep.</p>
+    <div class="copybtns">
+      <button class="btn primary" id="copyPdf">Save / print as PDF</button>
+      <button class="btn subtle" id="copyDl">Download a copy</button>
+    </div>
+    ${sheet}
+  </div>`;
+  document.getElementById('actionbar').style.display='none';
+  document.getElementById('copyPdf').addEventListener('click',()=>window.print());
+  document.getElementById('copyDl').addEventListener('click',()=>downloadCopy(name, sheet));
+}
+
+// Build a standalone HTML file of the copy and hand it to the browser to save.
+function downloadCopy(name, sheetHtml){
+  const css=`body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#181A1E;background:#fff;max-width:680px;margin:24px auto;padding:0 18px;line-height:1.5}
+    .copysheet{padding:0}.ch{display:flex;gap:12px;align-items:center;border-bottom:1px solid #ddd;padding-bottom:12px;margin-bottom:14px}
+    .ch img{height:34px}.ct b{display:block;font-size:15px}.ct span{font-size:12px;color:#666}
+    .cmeta{font-size:13px;color:#555;margin-bottom:16px}.cgrp{margin-bottom:14px}
+    .cgrp h4{font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 8px}.cgrp h4 .d{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+    .ci{padding:8px 0;border-top:1px dotted #ddd}.cq{font-size:14.5px}.ca{margin-top:4px;white-space:pre-wrap}.ca.rate{color:#7C4E05;font-family:monospace}`;
+  const doc=`<!doctype html><html><head><meta charset="utf-8"><title>Brutal Facts — your answers</title><style>${css}</style></head><body>${sheetHtml}</body></html>`;
+  const blob=new Blob([doc],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const safe=(name||'respondent').replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'').toLowerCase();
+  a.href=url; a.download=`brutal-facts-${safe||'copy'}.html`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
 }
 boot();
 </script>
