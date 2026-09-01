@@ -20,6 +20,17 @@ const DRIVER_BY_ID = {
   rec7hn71vADFJFGcn: 'Execution', recJcIM6i3CDfQEui: 'Innovation', recASBOypstgCKQeW: 'Leadership',
 };
 
+// The 6 driver maturity self-ratings (1-5, "where are you now"). Auto-appended to
+// EVERY engagement the picker creates, so the maturity score can never be forgotten.
+const MATURITY_IDS = [
+  'recZ2IU6FpjdDvuDu', // Culture
+  'recG6BPNzAOxSt83a', // Strategy
+  'recaQjcL0SKjXuNx8', // Structure
+  'reca6t2SXZn9PQy0A', // Execution
+  'recCqG8eHRjHGz1RL', // Innovation
+  'recB4tTUkFf110KQ1', // Leadership
+];
+
 async function loadQuestions() {
   const recs = await listAll(T.QUESTIONS);
   return recs.map(r => {
@@ -59,7 +70,11 @@ module.exports = async (req, res) => {
       if (!name) return res.status(400).json({ error: 'Give the engagement a name.' });
       if (!qIds.length) return res.status(400).json({ error: 'Pick at least one question.' });
 
-      const qnr = await createRecords(T.QUESTIONNAIRES, [{ fields: { [F.qnr.name]: name, [F.qnr.questions]: qIds } }]);
+      // Always include the 6 maturity ratings, whether or not they were ticked.
+      const allIds = qIds.slice();
+      for (const m of MATURITY_IDS) if (!allIds.includes(m)) allIds.push(m);
+
+      const qnr = await createRecords(T.QUESTIONNAIRES, [{ fields: { [F.qnr.name]: name, [F.qnr.questions]: allIds } }]);
       const qnrId = qnr[0].id;
 
       const engFields = { [F.eng.name]: name, [F.eng.questionnaire]: [qnrId], [F.eng.status]: 'Setup' };
