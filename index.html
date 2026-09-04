@@ -455,6 +455,11 @@ function buildQuestions(groups){
           lab.innerHTML=`<input type="radio" name="r-${q.id}" value="${L.n}"${state.ratings[q.id]===L.n?' checked':''}><span class="face"><span class="num">${L.n}</span><span class="lab">${L.lab}</span></span>`;
           lab.querySelector('input').addEventListener('change',()=>{ state.ratings[q.id]=L.n; refresh(); }); scale.appendChild(lab); });
         row.appendChild(scale);
+                const note=document.createElement('textarea'); note.className='inp whynote'; note.rows=1;
+        note.placeholder='One line on why — optional';
+        if(state.answers[q.id]) note.value=state.answers[q.id];
+        note.addEventListener('input',()=>{ state.answers[q.id]=note.value; });
+        row.appendChild(note);
       } else {
         const ta=document.createElement('textarea'); ta.className='inp'; ta.placeholder='Your answer…';
         if(state.answers[q.id]) ta.value=state.answers[q.id];
