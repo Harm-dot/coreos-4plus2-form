@@ -32,8 +32,10 @@ const MATURITY_IDS = [
 ];
 
 async function loadQuestions() {
-  const recs = await listAll(T.QUESTIONS);
-  return recs.map(r => {
+    const recs = await listAll(T.QUESTIONS);
+  // Only offer Active questions in the picker — Proposed (new form submissions) wait for approval.
+  const activeOnly = recs.filter(r => selName(r.fields['fldlSKggkuPRPWzBM']) === 'Active');
+  return activeOnly.map(r => {
     const c = r.fields;
     const drv = Array.isArray(c[QF.driver]) ? c[QF.driver][0] : null;
     return {
