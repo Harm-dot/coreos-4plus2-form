@@ -130,7 +130,7 @@ label.fld{display:block; font-size:11px; text-transform:uppercase; letter-spacin
     <div class="card">
       <div class="grid">
         <div><label class="fld" for="engName">Engagement name</label><input class="inp" id="engName" placeholder="e.g. Acme Corp — PMI diagnostic"></div>
-        <div><label class="fld" for="engClient">Client / company</label><input class="inp" id="engClient" placeholder="Acme Corp"></div>
+        <div><label class="fld" for="engClient">Client / company</label><input class="inp" id="engClient" list="clientList" autocomplete="off" placeholder="Pick or type…"><datalist id="clientList"></datalist></div>
         <div><label class="fld" for="engType">Type</label><select class="inp" id="engType"><option>Individual</option><option>Organization</option></select></div>
       </div>
     </div>
@@ -175,6 +175,7 @@ async function boot(){
   try{
     const data=await api({action:'questions'});
     state.questions=data.questions||[];
+    state.clients=data.clients||[];
     document.getElementById('loading').hidden=true;
     document.getElementById('app').hidden=false;
     document.getElementById('actionbar').hidden=false;
@@ -195,6 +196,11 @@ function initApp(){
   document.getElementById('addPerson').addEventListener('click',()=>{ state.people.push({name:'',role:''}); renderPeople(); });
   document.getElementById('create').addEventListener('click',create);
   ['engName'].forEach(id=>document.getElementById(id).addEventListener('input',refresh));
+  // client dropdown (pick or type) + auto-prefill the engagement name
+  const dl=document.getElementById('clientList');
+  if(dl) dl.innerHTML=(state.clients||[]).map(c=>`<option value="${esc(c)}"></option>`).join('');
+  const ec=document.getElementById('engClient');
+  ec.addEventListener('input',()=>{ const en=document.getElementById('engName'); if(ec.value.trim() && !en.value.trim()){ en.value=ec.value.trim()+' — diagnostic'; refresh(); } });
   state.people=[{name:'',role:''},{name:'',role:''}];
   renderQuestions(); renderPeople(); refresh();
 }
