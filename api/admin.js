@@ -32,7 +32,7 @@ const MATURITY_IDS = [
 ];
 
 async function loadQuestions() {
-    const recs = await listAll(T.QUESTIONS);
+  const recs = await listAll(T.QUESTIONS);
   // Only offer Active questions in the picker — Proposed (new form submissions) wait for approval.
   const activeOnly = recs.filter(r => selName(r.fields['fldlSKggkuPRPWzBM']) === 'Active');
   return activeOnly.map(r => {
@@ -51,6 +51,17 @@ async function loadQuestions() {
   });
 }
 
+// The client names, for the "pick or type" dropdown in the picker.
+async function loadClients() {
+  try {
+    const recs = await listAll('tblpkSq5rE18dWVtl');          // Clients table
+    return recs
+      .map(r => r.fields['fldd0fKTZSRhpe1JD'])                 // primary "Client" name field
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+  } catch (_) { return []; }                                   // never block the picker if Clients is unreadable
+}
+
 module.exports = async (req, res) => {
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
@@ -60,8 +71,9 @@ module.exports = async (req, res) => {
 
     if (action === 'questions') {
       const questions = await loadQuestions();
+      const clients = await loadClients();
       res.setHeader('Cache-Control', 'no-store');
-      return res.status(200).json({ ok: true, questions });
+      return res.status(200).json({ ok: true, questions, clients });
     }
 
     if (action === 'create') {
