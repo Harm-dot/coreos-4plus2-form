@@ -431,6 +431,7 @@ function resolveRespondent(){
 }
 function currentRole(){ const r=document.getElementById('role'); return (r&&r.value)||state.role||''; }
 function questionsForRole(role){
+     const USE_ROLE_FILTER=false; if(!USE_ROLE_FILTER) return state.data.groups;
   const groups = state.data.groups.map(g=>({
     driver:g.driver,
     questions: g.questions.filter(q=>{
