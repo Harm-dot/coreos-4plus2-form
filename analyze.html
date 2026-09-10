@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Core 4+2 · Generate a draft</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Newsreader:opsz,wght@16..72,400;16..72,500;16..72,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#ECEBE6; --panel:#FBFAF8; --panel-2:#F4F2EC; --panel-3:#EEEBE3;
+  --ink:#181A1E; --muted:#6E717B; --faint:#9A9CA3;
+  --line:#DEDBD3; --line-strong:#CFCBC1;
+  --accent:#B0700A; --accent-ink:#7C4E05; --accent-soft:#F3E7CE;
+  --ok:#3C7A4E; --ok-soft:#E2EFE4; --crit:#B23B2E; --crit-soft:#F4DED9;
+  --shadow:0 1px 2px rgba(20,22,26,.05), 0 8px 24px rgba(20,22,26,.06); --radius:12px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#131519; --panel:#1B1E24; --panel-2:#20242B; --panel-3:#252A32; --ink:#ECEBE6; --muted:#969AA4; --faint:#6C7079;
+  --line:#2A2E36; --line-strong:#3A3F49; --accent:#E7A43E; --accent-ink:#F0BE72; --accent-soft:#33291842;
+  --ok:#6FBF88; --ok-soft:#1C2A20; --crit:#E8776A; --crit-soft:#2E1D1B; --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{
+  --bg:#131519; --panel:#1B1E24; --panel-2:#20242B; --panel-3:#252A32; --ink:#ECEBE6; --muted:#969AA4; --faint:#6C7079;
+  --line:#2A2E36; --line-strong:#3A3F49; --accent:#E7A43E; --accent-ink:#F0BE72; --accent-soft:#33291842;
+  --ok:#6FBF88; --ok-soft:#1C2A20; --crit:#E8776A; --crit-soft:#2E1D1B; --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Archivo","Helvetica Neue",Arial,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.serif{font-family:"Newsreader",Georgia,serif}
+.bar{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.bar-in{max-width:820px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:12px}
+.brand{display:flex;align-items:baseline;gap:9px;margin-right:auto}
+.brand .mk{font-size:18px}.brand .name{font-weight:700;letter-spacing:-.02em;font-size:16px}
+.brand .sub{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+.themebtn{border:1px solid var(--line-strong);background:var(--panel);color:var(--muted);width:34px;height:34px;border-radius:8px;cursor:pointer}
+main{max-width:820px;margin:0 auto;padding:24px 20px 120px}
+h1{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:30px;letter-spacing:-.01em;margin:6px 0 6px}
+.lede{color:var(--muted);font-size:15px;margin:0 0 22px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+label.fld{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 6px}
+.inp{font-family:inherit;font-size:15px;color:var(--ink);background:var(--panel-2);border:1px solid var(--line-strong);border-radius:9px;padding:11px 12px;width:100%}
+select.inp{appearance:none;cursor:pointer;padding-right:34px;background-repeat:no-repeat;background-position:right 12px center;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%236E717B' stroke-width='1.6'/></svg>")}
+.row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.row .grow{flex:1;min-width:240px}
+.btn{font-family:inherit;font-weight:600;font-size:14.5px;border-radius:9px;padding:11px 20px;cursor:pointer;border:1px solid transparent}
+.btn.primary{background:var(--accent);color:#fff}
+:root[data-theme="dark"] .btn.primary,:root:not([data-theme="light"]) .btn.primary{color:#1B1E24}
+.btn.primary[disabled]{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:transparent;border:1px solid var(--line-strong);color:var(--muted)}
+.note{margin:14px 0 0;font-size:13px;color:var(--muted)}
+.warn{color:var(--crit);font-size:13.5px;margin-top:10px;min-height:1em}
+.draftwrap{margin-top:20px}
+.draftbar{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.draftbar .tag{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border-radius:5px;padding:3px 9px}
+.draftbar .meta{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--faint)}
+.draft{background:var(--panel);border:1px solid var(--line-strong);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px 30px}
+.draft h1,.draft h2,.draft h3{font-family:"Newsreader",Georgia,serif;letter-spacing:-.01em}
+.draft h1{font-size:25px;margin:0 0 14px}.draft h2{font-size:20px;margin:22px 0 8px;padding-top:14px;border-top:1px solid var(--line)}
+.draft h3{font-size:16px;margin:16px 0 6px}
+.draft p{margin:0 0 12px}.draft ul,.draft ol{margin:0 0 12px;padding-left:22px}.draft li{margin:5px 0}
+.draft strong{font-weight:600}.draft em{font-style:italic}
+.draft code{font-family:"IBM Plex Mono",monospace;font-size:.88em;background:var(--panel-3);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+.disc{margin-top:14px;font-size:12.5px;color:var(--faint);font-style:italic}
+.spin{display:inline-block;width:15px;height:15px;border:2px solid var(--line-strong);border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;vertical-align:-2px;margin-right:7px}
+@keyframes s{to{transform:rotate(360deg)}}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="bar"><div class="bar-in">
+  <div class="brand"><span class="mk">🧭</span><span class="name">Core 4+2</span><span class="sub">Generate a draft</span></div>
+  <button class="themebtn" id="theme" title="Toggle theme" aria-label="Toggle theme">☾</button>
+</div></div>
+
+<main>
+  <h1 class="serif">Generate an analysis draft</h1>
+  <p class="lede">Pick an engagement whose responses are in. You get the client-register readout to review — the safe, honey version. It is a <b>draft</b>: read it, edit it, and send it yourself. Nothing here reaches a client.</p>
+
+  <div class="card">
+    <div class="row">
+      <div class="grow">
+        <label class="fld" for="eng">Engagement</label>
+        <select class="inp" id="eng"><option value="">Loading…</option></select>
+      </div>
+      <button class="btn primary" id="go" disabled>Generate draft →</button>
+    </div>
+    <div class="warn" id="warn"></div>
+    <p class="note">Want the blunt coach version instead? Generate here, then ask Claude in chat for the coach register — that read stays deliberate, never automatic.</p>
+  </div>
+
+  <div class="draftwrap" id="draftwrap" hidden>
+    <div class="draftbar">
+      <span class="tag">Client draft</span>
+      <span class="meta" id="meta"></span>
+      <button class="btn ghost" id="copy" style="margin-left:auto;padding:7px 14px;font-size:13px">Copy</button>
+    </div>
+    <div class="draft" id="draft"></div>
+    <p class="disc">Draft generated from the responses on file. Check every finding before it leaves your hands — the tool drafts, you decide.</p>
+  </div>
+</main>
+
+<script>
+const API='/api/analyze';
+const state={ engagements:[], md:'' };
+document.getElementById('theme').addEventListener('click',()=>{const c=document.documentElement.getAttribute('data-theme');const dark=c==='dark'||(!c&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',dark?'light':'dark')});
+
+async function api(payload){
+  const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data=await res.json().catch(()=>({error:'Bad response'}));
+  if(!res.ok) throw new Error(data.error||('Error '+res.status));
+  return data;
+}
+function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+
+// tiny, safe markdown → HTML (headings, bold, italic, code, lists, paragraphs)
+function mdToHtml(md){
+  const lines=(md||'').replace(/\r/g,'').split('\n'); let html='', list=null;
+  const inline=s=>esc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/(^|[^*])\*(?!\*)(.+?)\*/g,'$1<em>$2</em>').replace(/`(.+?)`/g,'<code>$1</code>');
+  const closeList=()=>{ if(list){ html+=`</${list}>`; list=null; } };
+  for(let raw of lines){
+    const line=raw.trim();
+    if(!line){ closeList(); continue; }
+    let m;
+    if(m=line.match(/^(#{1,3})\s+(.*)$/)){ closeList(); const n=m[1].length; html+=`<h${n}>${inline(m[2])}</h${n}>`; continue; }
+    if(m=line.match(/^[-*]\s+(.*)$/)){ if(list!=='ul'){ closeList(); list='ul'; html+='<ul>'; } html+=`<li>${inline(m[1])}</li>`; continue; }
+    if(m=line.match(/^\d+\.\s+(.*)$/)){ if(list!=='ol'){ closeList(); list='ol'; html+='<ol>'; } html+=`<li>${inline(m[1])}</li>`; continue; }
+    closeList(); html+=`<p>${inline(line)}</p>`;
+  }
+  closeList(); return html;
+}
+
+async function boot(){
+  const sel=document.getElementById('eng');
+  try{
+    const data=await api({action:'engagements'});
+    state.engagements=data.engagements||[];
+    if(!state.engagements.length){ sel.innerHTML='<option value="">No engagements found</option>'; return; }
+    sel.innerHTML='<option value="">Pick one…</option>'+state.engagements.map(e=>`<option value="${e.id}">${esc(e.name)}${e.status?` · ${esc(e.status)}`:''}</option>`).join('');
+    sel.addEventListener('change',()=>{ document.getElementById('go').disabled=!sel.value; });
+  }catch(err){ document.getElementById('warn').textContent=err.message; }
+}
+boot();
+
+document.getElementById('go').addEventListener('click',async()=>{
+  const sel=document.getElementById('eng'), go=document.getElementById('go'), warn=document.getElementById('warn');
+  const id=sel.value; if(!id) return;
+  warn.textContent=''; go.disabled=true; go.innerHTML='<span class="spin"></span>Thinking…';
+  try{
+    const data=await api({action:'analyze',engagementId:id});
+    state.md=data.markdown||'';
+    document.getElementById('draft').innerHTML=mdToHtml(state.md);
+    document.getElementById('meta').textContent=`${data.engName||''} · ${data.respondentCount||0} people · ${data.responseCount||0} answers`;
+    document.getElementById('draftwrap').hidden=false;
+    document.getElementById('draftwrap').scrollIntoView({behavior:'smooth'});
+  }catch(err){ warn.textContent=err.message; }
+  go.disabled=false; go.textContent='Generate draft →';
+});
+
+document.getElementById('copy').addEventListener('click',()=>{
+  const b=document.getElementById('copy');
+  navigator.clipboard&&navigator.clipboard.writeText(state.md);
+  b.textContent='Copied ✓'; setTimeout(()=>b.textContent='Copy',1500);
+});
+</script>
+</body>
+</html>
