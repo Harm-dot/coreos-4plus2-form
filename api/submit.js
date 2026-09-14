@@ -22,8 +22,26 @@ module.exports = async (req, res) => {
     let respId = respondentId;
     let respName = name || '';
     if (respId) {
-      // trust the roster id, but read the name for the response ref
-      try { const rec = await getRecord(T.RESPONDENTS, respId); respName = rec.fields[F.resp.name] || respName; } catch (_) {}
+      // Trust the roster id and read the record. If the role chosen for THIS
+      // submission differs from the record's stored role, the same person is
+      // answering as a second role — split it into its own respondent so the
+      // two roles don't collapse onto one record (and one get dropped from analysis).
+      try {
+        const rec = await getRecord(T.RESPONDENTS, respId);
+        respName = rec.fields[F.resp.name] || respName;
+        const storedRole = (rec.fields[F.resp.role] || '').toString().trim();
+        const submittedRole = (role || '').toString().trim();
+        if (submittedRole && submittedRole !== storedRole) {
+          const split = await createRecords(T.RESPONDENTS, [{
+            fields: {
+              [F.resp.name]: respName,
+              [F.resp.role]: submittedRole,
+              [F.resp.engagement]: [engagementId],
+            },
+          }]);
+          respId = split[0].id;
+        }
+      } catch (_) {}
     } else {
       if (!respName.trim()) return res.status(400).json({ error: 'A name is required.' });
       const created = await createRecords(T.RESPONDENTS, [{
