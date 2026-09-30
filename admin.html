@@ -155,7 +155,7 @@ label.fld{display:block; font-size:11px; text-transform:uppercase; letter-spacin
 const API='/api/admin';
 const DRIVER_ORDER=['Culture','Strategy','Structure','Execution','Innovation','Leadership'];
 const DRIVER_COLOR={Culture:"#B06E3A",Strategy:"#3E7E86",Structure:"#6B7BB0",Execution:"#B0700A",Innovation:"#7C9A45",Leadership:"#9A5B8C"};
-const SCENARIOS=['General Diagnostic','Distressed SME Turnaround','Post-merger Integration','Distressed Franchise','Small Business Diagnostic','Franchise'];
+const SCENARIOS=['General Diagnostic','SME · Solo','SME · Small Team','SME · Established','Distressed SME Turnaround','Post-merger Integration','Distressed Franchise','Small Business Diagnostic','Franchise','Hiring · Finance Lead'];
 const ROLES=["CEO / President","CFO","COO","CSO","CIO / CTO","Owner / Founder","Division / BU Head","Sales Director","Marketing Director","Product / R&D / Innovation Lead","Operations Manager","HR Director","Manager / Team Lead","General Counsel","Corporate Development","Generic / All"];
 const state={ questions:[], scenario:SCENARIOS[0], selected:new Set(), people:[] };
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
