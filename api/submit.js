@@ -8,7 +8,7 @@
 // }
 // Creates a Respondent if needed, then one Responses record per answered item.
 
-const { T, F, getRecord, createRecords } = require('../lib/airtable');
+const { T, F, at, getRecord, createRecords } = require('../lib/airtable');
 
 module.exports = async (req, res) => {
   try {
@@ -75,6 +75,11 @@ module.exports = async (req, res) => {
 
     if (!records.length) return res.status(400).json({ error: 'All answers were blank.' });
     const created = await createRecords(T.RESPONSES, records);
+
+    // Completion tracking: mark this person as answered (never fail the submit over it).
+    try {
+      await at(`${T.RESPONDENTS}/${respId}`, { method: 'PATCH', body: JSON.stringify({ fields: { [F.resp.status]: 'Answered' }, typecast: true }) });
+    } catch (_) {}
 
     res.status(200).json({ ok: true, respondentId: respId, recorded: created.length });
   } catch (err) {
