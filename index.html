@@ -214,18 +214,20 @@ document.getElementById('theme').addEventListener('click',()=>{const cur=documen
 function showMsg(html){ document.getElementById('main').innerHTML='<div class="msg">'+html+'</div>'; document.getElementById('actionbar').style.display='none'; }
 
 async function boot(){
+  const r=qs('r');
+  if(r){ state.fromPick=false; loadEngagement(null,r); return; }
   const e=qs('e');
   if(e){ state.fromPick=false; loadEngagement(e); return; }
   if(qs('pick')!==null){ showPicker(); return; }
   showLanding();
 }
 
-async function loadEngagement(e){
+async function loadEngagement(e,r){
   document.getElementById('main').innerHTML='<div class="msg" id="loading"><div class="spinner"></div><p>Loading your diagnostic…</p></div>';
   document.getElementById('actionbar').style.display='none';
   const note=document.querySelector('#loading p');
   try{
-    const res=await fetchRetry('/api/engagement?e='+encodeURIComponent(e),undefined,4,()=>{ if(note) note.textContent='Waking things up — one moment…'; });
+    const res=await fetchRetry('/api/engagement?'+(r?('r='+encodeURIComponent(r)):('e='+encodeURIComponent(e))),undefined,4,()=>{ if(note) note.textContent='Waking things up — one moment…'; });
     const data=await res.json();
     if(!res.ok) throw new Error(data.error||'Could not load this diagnostic.');
     state.data=data; state.answers={}; state.ratings={}; state.respId=null; state.name=''; state.role=''; state.filteredGroups=null;
@@ -338,7 +340,7 @@ function render(){
     <div id="step-intro" class="stepwrap">
       <div class="introcard">
         <div class="ik">Core 4+2 Diagnostic${d.engagement.client?' · '+esc(d.engagement.client):''}</div>
-        <h2 class="ititle">${esc(d.engagement.name)}</h2>
+        <h2 class="ititle">${d.me&&d.me.name?('Hi '+esc(d.me.name.split(' ')[0])+' — '):''}${esc(d.engagement.name)}</h2>
         <p class="ip">You've been asked to take part in a short, candid diagnostic — about <b>${d.totalQuestions} questions</b> across <b>${d.groups.length} drivers</b>, roughly ten minutes. Blunt is more useful than polished; your honest read is exactly the point.</p>
         <p class="ip">No login, nothing to install.</p>
         <div class="stepnav">${state.fromPick?'<button class="btn ghost" id="backPick">← Different engagement</button>':''}<button class="btn primary" id="beginBtn">Begin →</button></div>
@@ -406,7 +408,17 @@ function render(){
   document.addEventListener('click',ev=>{ if(!ev.target.closest('.combo')) closeList(); });
 
   document.getElementById('role').addEventListener('change',e=>{ state.role=e.target.value; refresh(); });
-  document.getElementById('beginBtn').addEventListener('click',()=>goStep('id'));
+  document.getElementById('beginBtn').addEventListener('click',()=>{
+    // Personal link (?r=): we already know who this is and their level — skip the name step.
+    if(d.me){
+      state.respId=d.me.id; state.name=d.me.name; state.role=d.me.role||'';
+      const rl=document.getElementById('role'); if(rl&&state.role){ rl.value=state.role; }
+      state.filteredGroups=d.groups;
+      buildQuestions(state.filteredGroups);
+      goStep('q'); refresh(); return;
+    }
+    goStep('id');
+  });
   const bp=document.getElementById('backPick'); if(bp) bp.addEventListener('click',()=>showPicker(state.pickCode||''));
   document.getElementById('backIntro').addEventListener('click',()=>goStep('intro'));
   document.getElementById('toQ').addEventListener('click',()=>{
